@@ -1,0 +1,56 @@
+name: Deploy Ethereum Contracts
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ethereum/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          
+      - name: Install Truffle
+        run: npm install -g truffle
+        
+      - name: Install Dependencies
+        working-directory: ./ethereum
+        run: npm install
+        
+      - name: Create .env file
+        working-directory: ./ethereum
+        run: |
+          echo "MNEMONIC=${{ secrets.ETHEREUM_MNEMONIC }}" > .env
+          echo "INFURA_API_KEY=${{ secrets.INFURA_API_KEY }}" >> .env
+          
+      - name: Deploy Contracts
+        working-directory: ./ethereum
+        run: truffle migrate --network sepolia
+        
+      - name: Extract Contract Addresses
+        working-directory: ./ethereum
+        run: |
+          TOKEN_FACTORY=$(grep -A 1 "contract address:" build/contracts/TokenFactory.json | tail -1 | awk '{print $1}' | tr -d '"')
+          BRIDGE=$(grep -A 1 "contract address:" build/contracts/CrossifyBridge.json | tail -1 | awk '{print $1}' | tr -d '"')
+          echo "TOKEN_FACTORY=$TOKEN_FACTORY" >> $GITHUB_ENV
+          echo "BRIDGE=$BRIDGE" >> $GITHUB_ENV
+          echo "Deployed TokenFactory: $TOKEN_FACTORY"
+          echo "Deployed CrossifyBridge: $BRIDGE"
+          
+      - name: Update Connector.js
+        run: |
+          sed -i "s/const ETHEREUM_TOKEN_FACTORY = \".*\"/const ETHEREUM_TOKEN_FACTORY = \"$TOKEN_FACTORY\"/" ./integration/connector.js
+          sed -i "s/const ETHEREUM_BRIDGE = \".*\"/const ETHEREUM_BRIDGE = \"$BRIDGE\"/" ./integration/connector.js
+          
+      - name: Commit Updated Connector
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Update Ethereum Contract Addresses in connector.js [skip ci]"
+          file_pattern: integration/connector.js
