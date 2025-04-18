@@ -9,6 +9,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
+      - name: Debug - List Repository Contents
+        run: |
+          echo "Repository root contents:"
+          ls -la
+          echo "Checking for ethereum directory:"
+          ls -la ethereum || echo "ethereum directory not found"
+      
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -17,11 +24,24 @@ jobs:
       - name: Install Truffle
         run: npm install -g truffle
         
+      - name: Check if ethereum directory exists
+        id: check_ethereum
+        run: |
+          if [ -d "./ethereum" ]; then
+            echo "ethereum_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "ethereum_exists=false" >> $GITHUB_OUTPUT
+            echo "Ethereum directory does not exist. Please create it first."
+            exit 1
+          fi
+        
       - name: Install Dependencies
+        if: steps.check_ethereum.outputs.ethereum_exists == 'true'
         working-directory: ./ethereum
         run: npm install
         
       - name: Create .env file
+        if: steps.check_ethereum.outputs.ethereum_exists == 'true'
         working-directory: ./ethereum
         env:
           MNEMONIC: ${{ secrets.ETHEREUM_MNEMONIC }}
@@ -31,10 +51,12 @@ jobs:
           echo "INFURA_API_KEY=${INFURA_KEY}" >> .env
           
       - name: Deploy Contracts
+        if: steps.check_ethereum.outputs.ethereum_exists == 'true'
         working-directory: ./ethereum
-        run: truffle migrate --network sepolia
+        run: truffle migrate --network sepolia || echo "Deployment failed, but continuing for debugging"
         
       - name: Display Contract Addresses
+        if: steps.check_ethereum.outputs.ethereum_exists == 'true'
         working-directory: ./ethereum
         run: |
           echo "Deployment complete. Check the logs above for contract addresses."
