@@ -1,0 +1,10 @@
+{
+  "name": "crossify-ethereum",
+  "version": "1.0.0",
+  "description": "Ethereum contracts for Crossify",
+  "main": "truffle-config.js",
+  "dependencies": {
+    "@truffle/hdwallet-provider": "^2.1.0",
+    "dotenv": "^16.0.3"
+  }
+}
