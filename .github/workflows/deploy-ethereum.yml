@@ -50,13 +50,18 @@ jobs:
           echo "MNEMONIC=${MNEMONIC}" > .env
           echo "INFURA_API_KEY=${INFURA_KEY}" >> .env
           
-      - name: Deploy Contracts
+           - name: Deploy Contracts
         if: steps.check_ethereum.outputs.ethereum_exists == 'true'
         working-directory: ./ethereum
-        run: truffle migrate --network sepolia || echo "Deployment failed, but continuing for debugging"
-        
+        run: |
+          truffle migrate --network sepolia > deployment_output.txt || echo "Deployment failed, but continuing for debugging"
+          cat deployment_output.txt
+          
       - name: Display Contract Addresses
         if: steps.check_ethereum.outputs.ethereum_exists == 'true'
         working-directory: ./ethereum
         run: |
-          echo "Deployment complete. Check the logs above for contract addresses."
+          echo "Searching for contract addresses in deployment output..."
+          grep -A 1 "contract address:" deployment_output.txt || echo "No contract addresses found in output"
+          echo "If addresses are not shown above, check the full deployment logs."
+
