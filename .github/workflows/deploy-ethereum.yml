@@ -1,0 +1,40 @@
+name: Deploy Ethereum Contracts
+
+on:
+  workflow_dispatch:  # Manual trigger only for simplicity
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          
+      - name: Install Truffle
+        run: npm install -g truffle
+        
+      - name: Install Dependencies
+        working-directory: ./ethereum
+        run: npm install
+        
+      - name: Create .env file
+        working-directory: ./ethereum
+        env:
+          MNEMONIC: ${{ secrets.ETHEREUM_MNEMONIC }}
+          INFURA_KEY: ${{ secrets.INFURA_API_KEY }}
+        run: |
+          echo "MNEMONIC=${MNEMONIC}" > .env
+          echo "INFURA_API_KEY=${INFURA_KEY}" >> .env
+          
+      - name: Deploy Contracts
+        working-directory: ./ethereum
+        run: truffle migrate --network sepolia
+        
+      - name: Display Contract Addresses
+        working-directory: ./ethereum
+        run: |
+          echo "Deployment complete. Check the logs above for contract addresses."
