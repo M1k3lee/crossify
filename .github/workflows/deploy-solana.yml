@@ -1,0 +1,43 @@
+name: Deploy Solana Contracts
+
+on:
+  workflow_dispatch:  # Manual trigger only for simplicity
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          
+      - name: Install Solana CLI
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v1.14.17/install) "
+          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+          echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          
+      - name: Setup Anchor
+        run: npm install -g @project-serum/anchor
+          
+      - name: Setup Solana Wallet
+        run: |
+          mkdir -p ~/.config/solana
+          echo '${{ secrets.SOLANA_KEYPAIR }}' > ~/.config/solana/id.json
+          solana config set --url https://api.devnet.solana.com
+          solana config set --keypair ~/.config/solana/id.json
+          
+      - name: Build and Deploy
+        working-directory: ./solana/token-factory
+        run: |
+          npm install
+          anchor build
+          anchor deploy --provider.cluster devnet
+          
+      - name: Display Program ID
+        run: |
+          PROGRAM_ID=$(solana address -k ./solana/token-factory/target/deploy/token_factory-keypair.json) 
+          echo "Deployed Program ID: $PROGRAM_ID"
