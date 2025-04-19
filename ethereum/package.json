@@ -1,10 +1,20 @@
 {
   "name": "crossify-ethereum",
   "version": "1.0.0",
-  "description": "Ethereum contracts for Crossify",
+  "description": "Ethereum contracts for Crossify cross-chain token platform",
   "main": "truffle-config.js",
+  "scripts": {
+    "compile": "truffle compile",
+    "migrate": "truffle migrate",
+    "test": "truffle test",
+    "deploy:sepolia": "truffle migrate --network sepolia"
+  },
   "dependencies": {
+    "@openzeppelin/contracts": "^4.8.0",
     "@truffle/hdwallet-provider": "^2.1.0",
     "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "truffle": "^5.7.0"
   }
 }
