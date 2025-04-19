@@ -80,7 +80,7 @@ jobs:
         run: |
           anchor build || echo "Build failed, but continuing for debugging"
           if [ -f "target/deploy/token_factory-keypair.json" ]; then
-            PROGRAM_ID=$(solana address -k target/deploy/token_factory-keypair.json)
+            PROGRAM_ID=$(solana address -k target/deploy/token_factory-keypair.json) 
             echo "Program ID: $PROGRAM_ID"
             anchor deploy --program-id $PROGRAM_ID > deployment_output.txt || echo "Deployment failed, but continuing for debugging"
             cat deployment_output.txt
