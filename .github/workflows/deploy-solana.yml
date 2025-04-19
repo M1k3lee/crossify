@@ -1,4 +1,4 @@
-name: Deploy Solana Contracts
+name: Deploy Solana Programs
 
 on:
   workflow_dispatch:  # Manual trigger only for simplicity
@@ -9,35 +9,89 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
+      - name: Debug - List Repository Contents
+        run: |
+          echo "Repository root contents:"
+          ls -la
+          echo "Checking for solana directory:"
+          ls -la solana || echo "solana directory not found"
+      
+      - name: Setup Solana
+        uses: solana-labs/setup-solana@v1
+        with:
+          solana-version: stable
+          
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '16'
           
-      - name: Install Solana CLI
-        run: |
-          sh -c "$(curl -sSfL https://release.solana.com/v1.14.17/install) "
-          export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
-          echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
           
-      - name: Setup Anchor
-        run: npm install -g @project-serum/anchor
-          
-      - name: Setup Solana Wallet
+      - name: Install Anchor CLI
         run: |
-          mkdir -p ~/.config/solana
-          echo '${{ secrets.SOLANA_KEYPAIR }}' > ~/.config/solana/id.json
-          solana config set --url https://api.devnet.solana.com
-          solana config set --keypair ~/.config/solana/id.json
-          
-      - name: Build and Deploy
-        working-directory: ./solana/token-factory
+          # Install Anchor CLI from source
+          git clone https://github.com/coral-xyz/anchor
+          cd anchor
+          git checkout v0.28.0  # Use a specific version for stability
+          cargo install --path cli --locked
+          anchor --version
+        
+      - name: Check if solana directory exists
+        id: check_solana
         run: |
-          npm install
-          anchor build
-          anchor deploy --provider.cluster devnet
+          if [ -d "./solana" ]; then
+            echo "solana_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "solana_exists=false" >> $GITHUB_OUTPUT
+            echo "Solana directory does not exist. Please create it first."
+            exit 1
+          fi
+        
+      - name: Setup Solana Program Structure
+        if: steps.check_solana.outputs.solana_exists == 'true'
+        working-directory: ./solana
+        run: |
+          mkdir -p src
+          mkdir -p programs/token-factory/src
+          cp lib.rs programs/token-factory/src/
+          cp cross_chain.rs programs/token-factory/src/
+          cp wormhole.rs programs/token-factory/src/
+          
+      - name: Create Keypair
+        if: steps.check_solana.outputs.solana_exists == 'true'
+        working-directory: ./solana
+        env:
+          SOLANA_KEYPAIR: ${{ secrets.SOLANA_KEYPAIR }}
+        run: |
+          echo "$SOLANA_KEYPAIR" > keypair.json
+          solana config set --keypair keypair.json
+          solana config set --url devnet
+          
+      - name: Build and Deploy Program
+        if: steps.check_solana.outputs.solana_exists == 'true'
+        working-directory: ./solana
+        run: |
+          anchor build || echo "Build failed, but continuing for debugging"
+          if [ -f "target/deploy/token_factory-keypair.json" ]; then
+            PROGRAM_ID=$(solana address -k target/deploy/token_factory-keypair.json)
+            echo "Program ID: $PROGRAM_ID"
+            anchor deploy --program-id $PROGRAM_ID > deployment_output.txt || echo "Deployment failed, but continuing for debugging"
+            cat deployment_output.txt
+          else
+            echo "Build did not produce keypair file. Check build logs for errors."
+          fi
           
       - name: Display Program ID
+        if: steps.check_solana.outputs.solana_exists == 'true'
+        working-directory: ./solana
         run: |
-          PROGRAM_ID=$(solana address -k ./solana/token-factory/target/deploy/token_factory-keypair.json) 
-          echo "Deployed Program ID: $PROGRAM_ID"
+          echo "Searching for program ID in deployment output..."
+          grep -A 1 "Program ID:" deployment_output.txt || echo "No program ID found in output"
+          echo "If program ID is not shown above, check the full deployment logs."
