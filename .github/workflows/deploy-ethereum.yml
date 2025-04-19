@@ -64,4 +64,3 @@ jobs:
           echo "Searching for contract addresses in deployment output..."
           grep -A 1 "contract address:" deployment_output.txt || echo "No contract addresses found in output"
           echo "If addresses are not shown above, check the full deployment logs."
-
