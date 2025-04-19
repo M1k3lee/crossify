@@ -58,9 +58,16 @@ jobs:
           cat deployment_output.txt
           
       - name: Display Contract Addresses
-        if: steps.check_ethereum.outputs.ethereum_exists == 'true'
-        working-directory: ./ethereum
-        run: |
-          echo "Searching for contract addresses in deployment output..."
-          grep -A 1 "contract address:" deployment_output.txt || echo "No contract addresses found in output"
-          echo "If addresses are not shown above, check the full deployment logs."
+  if: steps.check_ethereum.outputs.ethereum_exists == 'true'
+  working-directory: ./ethereum
+  run: |
+    echo "Searching for contract addresses in deployment output..."
+    # Try multiple patterns to find addresses
+    grep -i "contract address" deployment_output.txt || true
+    grep -i "deployed at" deployment_output.txt || true
+    grep -i "0x" deployment_output.txt | grep -v "transaction" || true
+    
+    # If nothing found, show the last 20 lines of output for debugging
+    echo "Showing last 20 lines of deployment output for debugging:"
+    tail -n 20 deployment_output.txt
+
